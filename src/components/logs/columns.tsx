@@ -6,19 +6,12 @@ import { type LogRow, severityColorClass } from "@/lib/utils/otlp";
 import { SeverityNumber } from "@/lib/types/otlp";
 
 const sortByDate: SortingFn<LogRow> = (rowA, rowB, columnId) =>
-  (rowA.getValue<Date>(columnId)?.getTime() ?? 0) -
-  (rowB.getValue<Date>(columnId)?.getTime() ?? 0);
+  (rowA.getValue<Date>(columnId)?.getTime() ?? 0) - (rowB.getValue<Date>(columnId)?.getTime() ?? 0);
 
-function SortableHeader({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
+function SortableHeader({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
-      className="flex items-center gap-1 hover:text-foreground transition-colors"
+      className="flex items-center gap-1 transition-colors hover:text-foreground"
       onClick={onClick}
     >
       {label}
@@ -66,26 +59,18 @@ export const columns: ColumnDef<LogRow>[] = [
   {
     accessorKey: "serviceName",
     header: "Service",
-    cell: ({ row }) => (
-      <span className="font-mono">{row.getValue("serviceName")}</span>
-    ),
+    cell: ({ row }) => <span className="font-mono">{row.getValue("serviceName")}</span>,
   },
   {
     accessorKey: "scopeName",
     header: "Scope",
     cell: ({ row }) => (
-      <span className="font-mono text-muted-foreground">
-        {row.getValue("scopeName")}
-      </span>
+      <span className="font-mono text-muted-foreground">{row.getValue("scopeName")}</span>
     ),
   },
   {
     accessorKey: "body",
     header: "Message",
-    cell: ({ row }) => (
-      <span className="block max-w-[600px] truncate">
-        {row.getValue("body")}
-      </span>
-    ),
+    cell: ({ row }) => <span className="block max-w-[600px] truncate">{row.getValue("body")}</span>,
   },
 ];
