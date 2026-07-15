@@ -294,6 +294,39 @@ export function DataTable<TData, TValue>({
           </div>
         )}
 
+        {/* Service filter */}
+        {groupByKey && availableServices.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
+              <RiFilterLine className="size-3.5" />
+              {groupByLabel}
+              {hiddenServiceSet.size > 0 && (
+                <span className="rounded bg-muted px-1 font-mono text-[10px] font-medium text-foreground">
+                  {availableServices.length - hiddenServiceSet.size}/
+                  {availableServices.length}
+                </span>
+              )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Filter by {groupByLabel}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {availableServices.map((service) => (
+                  <DropdownMenuCheckboxItem
+                    key={service}
+                    checked={!hiddenServiceSet.has(service)}
+                    onCheckedChange={(checked) =>
+                      toggleServiceFilter(service, !!checked)
+                    }
+                  >
+                    {service}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         {/* Column picker */}
         {hideableColumns.length > 0 && (
           <DropdownMenu>
