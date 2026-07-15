@@ -164,7 +164,7 @@ export function DataTable<TData, TValue>({
   const visibleColCount = table.getVisibleLeafColumns().length;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
         {/* Group toggle */}
@@ -223,12 +223,12 @@ export function DataTable<TData, TValue>({
         )}
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-md border border-border">
+      {/* Table — flex-1 so it fills remaining space, overflow-y-auto makes body scroll */}
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-muted/30">
+              <TableRow key={headerGroup.id} className="bg-muted">
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}

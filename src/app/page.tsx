@@ -9,17 +9,19 @@ export default function Home() {
   queryClient.prefetchQuery({ queryKey: logsQueryKey, queryFn: fetchLogsServer });
 
   return (
-    <main className="flex flex-col gap-6 p-6">
-      <h1 className="text-3xl font-bold text-foreground">OTLP Logs Viewer</h1>
-      <HydrationBoundary state={dehydrate(queryClient)}>
-        <Suspense
-          fallback={
-            <div className="text-muted-foreground text-sm">Loading logs…</div>
-          }
-        >
-          <LogsView />
-        </Suspense>
-      </HydrationBoundary>
+    <main className="flex h-dvh flex-col gap-4 overflow-hidden p-6">
+      <h1 className="shrink-0 text-3xl font-bold text-foreground">OTLP Logs Viewer</h1>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <HydrationBoundary state={dehydrate(queryClient)}>
+          <Suspense
+            fallback={
+              <div className="text-muted-foreground text-sm">Loading logs…</div>
+            }
+          >
+            <LogsView />
+          </Suspense>
+        </HydrationBoundary>
+      </div>
     </main>
   );
 }

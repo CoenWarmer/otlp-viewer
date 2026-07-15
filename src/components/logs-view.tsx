@@ -26,7 +26,7 @@ export default function LogsView() {
   }
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       <DataTable
         columns={allColumns}
         data={rows}
@@ -39,6 +39,6 @@ export default function LogsView() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
       />
-    </>
+    </div>
   );
 }
