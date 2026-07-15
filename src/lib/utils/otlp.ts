@@ -109,10 +109,16 @@ function severityLabel(n: SeverityNumber | undefined): string {
   return "UNSPECIFIED";
 }
 
-/** Returns a sorted, deduplicated list of all attribute keys found across all rows. */
+/**
+ * Returns a sorted, deduplicated list of all attribute keys found across all rows.
+ * Scans both log record attributes and resource attributes.
+ */
 export function collectAttributeKeys(rows: LogRow[]): string[] {
   const keys = new Set<string>();
-  rows.forEach((row) => Object.keys(row.attributes).forEach((k) => keys.add(k)));
+  rows.forEach((row) => {
+    Object.keys(row.attributes).forEach((k) => keys.add(k));
+    Object.keys(row.resourceAttributes).forEach((k) => keys.add(k));
+  });
   return Array.from(keys).sort();
 }
 

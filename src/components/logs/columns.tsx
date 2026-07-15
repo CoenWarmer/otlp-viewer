@@ -78,14 +78,15 @@ export const columns: ColumnDef<LogRow>[] = [
   },
 ];
 
-/** Creates a toggleable column for a log record attribute key. */
+/** Creates a toggleable column for an attribute key (checks log attributes then resource attributes). */
 export function createAttributeColumn(key: string): ColumnDef<LogRow> {
   return {
     id: `attr:${key}`,
     header: key,
     enableHiding: true,
     cell: ({ row }) => {
-      const val = row.original.attributes[key];
+      const val =
+        row.original.attributes[key] ?? row.original.resourceAttributes[key];
       if (val === undefined || val === null)
         return <span className="text-muted-foreground">—</span>;
       return (
