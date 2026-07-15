@@ -12,6 +12,8 @@ import {
 import { SeverityNumber } from "@/lib/types/otlp";
 import { columns, createAttributeColumn } from "./logs/columns";
 import { DataTable, type TableFilter } from "./logs/data-table";
+import { Badge } from "@/components/ui/badge";
+import { RiCloseLine } from "@remixicon/react";
 import { LogDrawer } from "./logs/log-drawer";
 import { LogVolumeChart } from "./logs/log-volume-chart";
 
@@ -100,9 +102,44 @@ export default function LogsView() {
     setDrawerOpen(true);
   }
 
+  const isServiceFiltered = hiddenServices.length > 0;
+  const visibleServices = useMemo(
+    () => availableServices.filter((s) => !hiddenServices.includes(s)),
+    [availableServices, hiddenServices]
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <LogVolumeChart rows={visibleRows} />
+      <div className="shrink-0">
+        <h1 className="text-3xl font-bold text-foreground">OTLP Logs Viewer</h1>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {isServiceFiltered ? (
+            visibleServices.map((service) => (
+              <Badge key={service} variant="secondary" className="gap-1 pr-1">
+                {service}
+                <button
+                  aria-label={`Remove ${service} filter`}
+                  className="rounded hover:text-foreground"
+                  onClick={() =>
+                    setHiddenServices((prev) => [...prev, service])
+                  }
+                >
+                  <RiCloseLine className="size-3" />
+                </button>
+              </Badge>
+            ))
+          ) : (
+            <Badge variant="outline">
+              All services ({availableServices.length})
+            </Badge>
+          )}
+        </div>
+      </div>
+      <LogVolumeChart
+        rows={visibleRows}
+        selectedRange={timeRange}
+        onRangeSelect={setTimeRange}
+      />
       <DataTable
         columns={allColumns}
         data={visibleRows}
