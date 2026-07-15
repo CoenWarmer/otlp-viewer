@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { fetchLogs, logsQueryKey } from "@/lib/queries/logs";
-import { flattenLogs, type LogRow } from "@/lib/utils/otlp";
-import { columns } from "./logs/columns";
+import { collectAttributeKeys, flattenLogs, type LogRow } from "@/lib/utils/otlp";
+import { columns, createAttributeColumn } from "./logs/columns";
 import { DataTable } from "./logs/data-table";
 import { LogDrawer } from "./logs/log-drawer";
 
 export default function LogsView() {
   const { data } = useSuspenseQuery({ queryKey: logsQueryKey, queryFn: fetchLogs });
-  const rows = flattenLogs(data);
+  const rows = useMemo(() => flattenLogs(data), [data]);
+
+  const allColumns = useMemo(() => {
+    const attributeKeys = collectAttributeKeys(rows);
+    return [...columns, ...attributeKeys.map(createAttributeColumn)];
+  }, [rows]);
 
   const [selectedRow, setSelectedRow] = useState<LogRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -22,7 +27,7 @@ export default function LogsView() {
 
   return (
     <>
-      <DataTable columns={columns} data={rows} onRowClick={handleRowClick} />
+      <DataTable columns={allColumns} data={rows} onRowClick={handleRowClick} />
       <LogDrawer
         row={selectedRow}
         open={drawerOpen}

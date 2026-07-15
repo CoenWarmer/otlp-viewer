@@ -109,6 +109,13 @@ function severityLabel(n: SeverityNumber | undefined): string {
   return "UNSPECIFIED";
 }
 
+/** Returns a sorted, deduplicated list of all attribute keys found across all rows. */
+export function collectAttributeKeys(rows: LogRow[]): string[] {
+  const keys = new Set<string>();
+  rows.forEach((row) => Object.keys(row.attributes).forEach((k) => keys.add(k)));
+  return Array.from(keys).sort();
+}
+
 export function severityColorClass(n: SeverityNumber): string {
   if (n >= SeverityNumber.SEVERITY_NUMBER_FATAL) return "text-purple-400";
   if (n >= SeverityNumber.SEVERITY_NUMBER_ERROR) return "text-red-400";

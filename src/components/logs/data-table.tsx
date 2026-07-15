@@ -3,6 +3,7 @@
 import {
   ColumnDef,
   SortingState,
+  VisibilityState,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
@@ -18,7 +19,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { RiArrowLeftSLine, RiArrowRightSLine, RiLayoutColumnLine } from "@remixicon/react";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -37,6 +47,20 @@ export function DataTable<TData, TValue>({
     { id: "timestamp", desc: true },
   ]);
 
+  // All hideable columns start hidden; user opts in via the picker
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    () =>
+      Object.fromEntries(
+        columns
+          .filter((col) => col.enableHiding !== false)
+          .map((col) => {
+            const id = (col as { id?: string; accessorKey?: string }).id ??
+              (col as { accessorKey?: string }).accessorKey ?? "";
+            return [id, false];
+          })
+      )
+  );
+
   const table = useReactTable({
     data,
     columns,
@@ -44,7 +68,8 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
-    state: { sorting },
+    onColumnVisibilityChange: setColumnVisibility,
+    state: { sorting, columnVisibility },
     initialState: { pagination: { pageSize: defaultPageSize } },
   });
 
@@ -53,8 +78,38 @@ export function DataTable<TData, TValue>({
   const fromRow = pageIndex * pageSize + 1;
   const toRow = Math.min((pageIndex + 1) * pageSize, totalRows);
 
+  const hideableColumns = table.getAllColumns().filter((col) => col.getCanHide());
+
   return (
     <div className="flex flex-col gap-2">
+      {/* Toolbar */}
+      {hideableColumns.length > 0 && (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
+              <RiLayoutColumnLine className="size-3.5" />
+              Columns
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Toggle attribute columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {hideableColumns.map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(checked) => col.toggleVisibility(!!checked)}
+                  >
+                    {col.id.startsWith("attr:") ? col.id.slice(5) : col.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      {/* Table */}
       <div className="overflow-hidden rounded-md border border-border">
         <Table>
           <TableHeader>
@@ -106,6 +161,7 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
+      {/* Pagination */}
       <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
         <span>
           {totalRows > 0

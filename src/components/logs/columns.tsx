@@ -6,12 +6,19 @@ import { type LogRow, severityColorClass } from "@/lib/utils/otlp";
 import { SeverityNumber } from "@/lib/types/otlp";
 
 const sortByDate: SortingFn<LogRow> = (rowA, rowB, columnId) =>
-  (rowA.getValue<Date>(columnId)?.getTime() ?? 0) - (rowB.getValue<Date>(columnId)?.getTime() ?? 0);
+  (rowA.getValue<Date>(columnId)?.getTime() ?? 0) -
+  (rowB.getValue<Date>(columnId)?.getTime() ?? 0);
 
-function SortableHeader({ label, onClick }: { label: string; onClick: () => void }) {
+function SortableHeader({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <button
-      className="flex items-center gap-1 transition-colors hover:text-foreground"
+      className="flex items-center gap-1 hover:text-foreground transition-colors"
       onClick={onClick}
     >
       {label}
@@ -20,13 +27,15 @@ function SortableHeader({ label, onClick }: { label: string; onClick: () => void
   );
 }
 
+/** Fixed columns — always visible, cannot be hidden. */
 export const columns: ColumnDef<LogRow>[] = [
   {
     accessorKey: "timestamp",
+    enableHiding: false,
     sortingFn: sortByDate,
     header: ({ column }) => (
       <SortableHeader
-        label="Timestamp"
+        label="Time"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
       />
     ),
@@ -41,6 +50,7 @@ export const columns: ColumnDef<LogRow>[] = [
   },
   {
     accessorKey: "severityNumber",
+    enableHiding: false,
     header: ({ column }) => (
       <SortableHeader
         label="Severity"
@@ -57,20 +67,32 @@ export const columns: ColumnDef<LogRow>[] = [
     },
   },
   {
-    accessorKey: "serviceName",
-    header: "Service",
-    cell: ({ row }) => <span className="font-mono">{row.getValue("serviceName")}</span>,
-  },
-  {
-    accessorKey: "scopeName",
-    header: "Scope",
+    accessorKey: "body",
+    enableHiding: false,
+    header: "Body",
     cell: ({ row }) => (
-      <span className="font-mono text-muted-foreground">{row.getValue("scopeName")}</span>
+      <span className="block max-w-[600px] truncate">
+        {row.getValue("body")}
+      </span>
     ),
   },
-  {
-    accessorKey: "body",
-    header: "Message",
-    cell: ({ row }) => <span className="block max-w-[600px] truncate">{row.getValue("body")}</span>,
-  },
 ];
+
+/** Creates a toggleable column for a log record attribute key. */
+export function createAttributeColumn(key: string): ColumnDef<LogRow> {
+  return {
+    id: `attr:${key}`,
+    header: key,
+    enableHiding: true,
+    cell: ({ row }) => {
+      const val = row.original.attributes[key];
+      if (val === undefined || val === null)
+        return <span className="text-muted-foreground">—</span>;
+      return (
+        <span className="font-mono">
+          {typeof val === "object" ? JSON.stringify(val) : String(val)}
+        </span>
+      );
+    },
+  };
+}
