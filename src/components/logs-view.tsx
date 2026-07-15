@@ -27,7 +27,13 @@ export default function LogsView() {
 
   return (
     <>
-      <DataTable columns={allColumns} data={rows} onRowClick={handleRowClick} />
+      <DataTable
+        columns={allColumns}
+        data={rows}
+        onRowClick={handleRowClick}
+        groupByKey="serviceName"
+        groupByLabel="Service"
+      />
       <LogDrawer
         row={selectedRow}
         open={drawerOpen}
