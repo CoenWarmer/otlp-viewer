@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  Column,
   ColumnDef,
   ColumnOrderState,
   Row,
   SortingState,
+  Table as TanstackTable,
   VisibilityState,
   flexRender,
   getCoreRowModel,
@@ -25,13 +27,13 @@ import {
 } from "@/components/ui/table";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   RiArrowDownSLine,
   RiArrowLeftSLine,
@@ -43,6 +45,17 @@ import {
   RiMenuLine,
 } from "@remixicon/react";
 
+export interface TableFilter {
+  label: string;
+  options: string[];
+  hiddenValues: string[];
+  onToggle: (value: string, visible: boolean) => void;
+  /** Called when the user clicks "All" — true = show all, false = hide all. */
+  onSetAll: (visible: boolean) => void;
+  /** Optional custom renderer for each option row in the dropdown. */
+  renderOption?: (value: string) => React.ReactNode;
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -51,8 +64,162 @@ interface DataTableProps<TData, TValue> {
   /** If provided, a "Group by …" toggle appears that groups rows by this key. */
   groupByKey?: string;
   groupByLabel?: string;
+  /**
+   * Filter dropdowns. Filtering is controlled by the caller so that other UI
+   * (e.g. a chart) driven by the same source rows stays in sync with the table.
+   */
+  filters?: TableFilter[];
   /** Namespaces the localStorage keys used to persist column/grouping settings. */
   storageKey?: string;
+}
+
+// ── Searchable dropdown sub-components ──────────────────────────────────────
+
+function SearchInput({
+  value,
+  onChange,
+  onEnter,
+  placeholder = "Search…",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onEnter?: () => void;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  return (
+    <div className="px-2 pb-1 pt-2">
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") e.stopPropagation();
+          if (e.key === "Enter") onEnter?.();
+        }}
+        className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:border-ring"
+      />
+    </div>
+  );
+}
+
+function FilterDropdownContent({ filter }: { filter: TableFilter }) {
+  const [search, setSearch] = useState("");
+  const hiddenSet = new Set(filter.hiddenValues);
+  const filtered = search
+    ? filter.options.filter((o) => o.toLowerCase().includes(search.toLowerCase()))
+    : filter.options;
+
+  return (
+    <>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder={`Search ${filter.label}…`}
+        onEnter={() => {
+          if (filtered.length === 1)
+            filter.onToggle(filtered[0], hiddenSet.has(filtered[0]));
+        }}
+      />
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>Filter by {filter.label}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {!search && (
+          <>
+            <div
+              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
+              onClick={() => filter.onSetAll(hiddenSet.size > 0)}
+            >
+              <Checkbox
+                checked={
+                  hiddenSet.size === 0 ? true
+                  : hiddenSet.size === filter.options.length ? false
+                  : "mixed"
+                }
+                className="pointer-events-none"
+              />
+              <span>All</span>
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {filtered.map((value) => (
+          <div
+            key={value}
+            className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
+            onClick={() => filter.onToggle(value, hiddenSet.has(value))}
+          >
+            <Checkbox checked={!hiddenSet.has(value)} className="pointer-events-none" />
+            {filter.renderOption ? filter.renderOption(value) : <span className="font-mono">{value}</span>}
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <p className="px-2 py-3 text-center text-xs text-muted-foreground">No results.</p>
+        )}
+      </DropdownMenuGroup>
+    </>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ColumnsDropdownContent({ hideableColumns, table }: { hideableColumns: Column<any, any>[]; table: TanstackTable<any> }) {
+  const [search, setSearch] = useState("");
+  const getLabel = (col: Column<unknown, unknown>) =>
+    col.id.startsWith("attr:") ? col.id.slice(5) : col.id;
+  const filtered = search
+    ? hideableColumns.filter((c) => getLabel(c).toLowerCase().includes(search.toLowerCase()))
+    : hideableColumns;
+  const visibleCount = hideableColumns.filter((c) => c.getIsVisible()).length;
+  const allVisible = visibleCount === hideableColumns.length;
+  const noneVisible = visibleCount === 0;
+
+  return (
+    <>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Search columns…"
+        onEnter={() => {
+          if (filtered.length === 1)
+            filtered[0].toggleVisibility(!filtered[0].getIsVisible());
+        }}
+      />
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>Toggle attribute columns</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {!search && (
+          <>
+            <div
+              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
+              onClick={() => table.toggleAllColumnsVisible(noneVisible)}
+            >
+              <Checkbox
+                checked={allVisible ? true : noneVisible ? false : "mixed"}
+                className="pointer-events-none"
+              />
+              <span>All</span>
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {filtered.map((col) => (
+          <div
+            key={col.id}
+            className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
+            onClick={() => col.toggleVisibility(!col.getIsVisible())}
+          >
+            <Checkbox checked={col.getIsVisible()} className="pointer-events-none" />
+            <span className="font-mono">{getLabel(col)}</span>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <p className="px-2 py-3 text-center text-xs text-muted-foreground">No results.</p>
+        )}
+      </DropdownMenuGroup>
+    </>
+  );
 }
 
 function getColumnId<TData, TValue>(col: ColumnDef<TData, TValue>): string {
@@ -68,7 +235,11 @@ function computeDefaultVisibility<TData, TValue>(
   return Object.fromEntries(
     columns
       .filter((col) => col.enableHiding !== false)
-      .map((col) => [getColumnId(col), false])
+      .map((col) => {
+        const id = getColumnId(col);
+        // Attribute columns start hidden; named columns start visible
+        return [id, !id.startsWith("attr:")];
+      })
   );
 }
 
@@ -85,6 +256,7 @@ export function DataTable<TData, TValue>({
   onRowClick,
   groupByKey,
   groupByLabel = "Service",
+  filters = [],
   storageKey = "logs-table",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([
@@ -110,46 +282,7 @@ export function DataTable<TData, TValue>({
     () => new Set(collapsedGroupIds),
     [collapsedGroupIds]
   );
-  const [hiddenServices, setHiddenServices] = useLocalStorageState<string[]>(
-    `${storageKey}.hiddenServices`,
-    []
-  );
-  const hiddenServiceSet = useMemo(
-    () => new Set(hiddenServices),
-    [hiddenServices]
-  );
   const hydrated = useHydrated();
-
-  // All distinct values for `groupByKey` seen in the (unfiltered) data,
-  // used to populate the service filter dropdown.
-  const availableServices = useMemo(() => {
-    if (!groupByKey) return [];
-    const set = new Set<string>();
-    data.forEach((row) => {
-      set.add(
-        String((row as Record<string, unknown>)[groupByKey] || "(no service)")
-      );
-    });
-    return Array.from(set).sort();
-  }, [data, groupByKey]);
-
-  // Rows whose service has been unchecked in the filter dropdown are
-  // excluded before the table (and grouping) ever sees them.
-  const filteredData = useMemo(() => {
-    if (!groupByKey || hiddenServiceSet.size === 0) return data;
-    return data.filter((row) => {
-      const value = String(
-        (row as Record<string, unknown>)[groupByKey] || "(no service)"
-      );
-      return !hiddenServiceSet.has(value);
-    });
-  }, [data, groupByKey, hiddenServiceSet]);
-
-  function toggleServiceFilter(service: string, visible: boolean) {
-    setHiddenServices((prev) =>
-      visible ? prev.filter((s) => s !== service) : [...prev, service]
-    );
-  }
 
   // Reconcile persisted settings with the current column set: keep stored
   // choices for columns that still exist, default any newly-seen columns
@@ -207,7 +340,7 @@ export function DataTable<TData, TValue>({
   }
 
   const table = useReactTable({
-    data: filteredData,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -225,7 +358,10 @@ export function DataTable<TData, TValue>({
   const toRow = Math.min((pageIndex + 1) * pageSize, totalRows);
   const hideableColumns = table.getAllColumns().filter((col) => col.getCanHide());
 
-  // Build groups from the full sorted row set (bypasses pagination)
+  // Build groups from the full sorted row set (bypasses pagination).
+  // `table` is a stable, mutated-in-place ref returned by `useReactTable` — its
+  // identity never changes, so we depend on `data`/`sorting` directly (the
+  // actual inputs that affect the row set) rather than on `table` itself.
   const groups = useMemo<[string, Row<TData>[]][] | null>(() => {
     if (!isGrouped || !groupByKey) return null;
     const map = new Map<string, Row<TData>[]>();
@@ -237,7 +373,8 @@ export function DataTable<TData, TValue>({
       map.get(key)!.push(row);
     });
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [isGrouped, groupByKey, table]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGrouped, groupByKey, data, sorting]);
 
   function toggleGroup(name: string) {
     setCollapsedGroupIds((prev) =>
@@ -294,38 +431,27 @@ export function DataTable<TData, TValue>({
           </div>
         )}
 
-        {/* Service filter */}
-        {groupByKey && availableServices.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
-              <RiFilterLine className="size-3.5" />
-              {groupByLabel}
-              {hiddenServiceSet.size > 0 && (
+        {/* Filter dropdowns */}
+        {filters.map((filter) => {
+          const hiddenSet = new Set(filter.hiddenValues);
+          const visibleCount = filter.options.length - hiddenSet.size;
+          return (
+            <DropdownMenu key={filter.label}>
+              <DropdownMenuTrigger className="flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
+                <RiFilterLine className="size-3.5" />
+                {filter.label}
                 <span className="rounded bg-muted px-1 font-mono text-[10px] font-medium text-foreground">
-                  {availableServices.length - hiddenServiceSet.size}/
-                  {availableServices.length}
+                  {hiddenSet.size > 0
+                    ? `${visibleCount}/${filter.options.length}`
+                    : filter.options.length}
                 </span>
-              )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Filter by {groupByLabel}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {availableServices.map((service) => (
-                  <DropdownMenuCheckboxItem
-                    key={service}
-                    checked={!hiddenServiceSet.has(service)}
-                    onCheckedChange={(checked) =>
-                      toggleServiceFilter(service, !!checked)
-                    }
-                  >
-                    {service}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">
+                <FilterDropdownContent filter={filter} />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        })}
 
         {/* Column picker */}
         {hideableColumns.length > 0 && (
@@ -333,23 +459,17 @@ export function DataTable<TData, TValue>({
             <DropdownMenuTrigger className="ml-auto flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
               <RiLayoutColumnLine className="size-3.5" />
               Columns
+              <span className="rounded bg-muted px-1 font-mono text-[10px] font-medium text-foreground">
+                {(() => {
+                  const visible = hideableColumns.filter((c) => c.getIsVisible()).length;
+                  return visible > 0
+                    ? `${visible}/${hideableColumns.length}`
+                    : hideableColumns.length;
+                })()}
+              </span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Toggle attribute columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {hideableColumns.map((col) => (
-                  <DropdownMenuCheckboxItem
-                    key={col.id}
-                    checked={col.getIsVisible()}
-                    onCheckedChange={(checked) =>
-                      col.toggleVisibility(!!checked)
-                    }
-                  >
-                    {col.id.startsWith("attr:") ? col.id.slice(5) : col.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
+            <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-y-auto">
+                <ColumnsDropdownContent hideableColumns={hideableColumns} table={table} />
             </DropdownMenuContent>
           </DropdownMenu>
         )}

@@ -31,7 +31,6 @@ function SortableHeader({
 export const columns: ColumnDef<LogRow>[] = [
   {
     accessorKey: "timestamp",
-    enableHiding: false,
     sortingFn: sortByDate,
     header: ({ column }) => (
       <SortableHeader
@@ -50,7 +49,6 @@ export const columns: ColumnDef<LogRow>[] = [
   },
   {
     accessorKey: "severityNumber",
-    enableHiding: false,
     header: ({ column }) => (
       <SortableHeader
         label="Severity"
@@ -68,7 +66,6 @@ export const columns: ColumnDef<LogRow>[] = [
   },
   {
     accessorKey: "body",
-    enableHiding: false,
     header: "Body",
     cell: ({ row }) => (
       <span className="block max-w-[600px] truncate">
@@ -82,7 +79,12 @@ export const columns: ColumnDef<LogRow>[] = [
 export function createAttributeColumn(key: string): ColumnDef<LogRow> {
   return {
     id: `attr:${key}`,
-    header: key,
+    header: ({ column }) => (
+      <SortableHeader
+        label={key}
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      />
+    ),
     enableHiding: true,
     cell: ({ row }) => {
       const val =
