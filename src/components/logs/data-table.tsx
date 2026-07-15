@@ -12,7 +12,9 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocalStorageState } from "@/lib/hooks/use-local-storage-state";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 import {
   Table,
   TableBody,
@@ -35,6 +37,7 @@ import {
   RiArrowLeftSLine,
   RiArrowRightSLine,
   RiArrowRightSLine as RiChevronRight,
+  RiFilterLine,
   RiLayoutColumnLine,
   RiListCheck2,
   RiMenuLine,
@@ -48,6 +51,31 @@ interface DataTableProps<TData, TValue> {
   /** If provided, a "Group by …" toggle appears that groups rows by this key. */
   groupByKey?: string;
   groupByLabel?: string;
+  /** Namespaces the localStorage keys used to persist column/grouping settings. */
+  storageKey?: string;
+}
+
+function getColumnId<TData, TValue>(col: ColumnDef<TData, TValue>): string {
+  return (
+    (col as { id?: string }).id ??
+    String((col as { accessorKey?: unknown }).accessorKey ?? "")
+  );
+}
+
+function computeDefaultVisibility<TData, TValue>(
+  columns: ColumnDef<TData, TValue>[]
+): VisibilityState {
+  return Object.fromEntries(
+    columns
+      .filter((col) => col.enableHiding !== false)
+      .map((col) => [getColumnId(col), false])
+  );
+}
+
+function computeDefaultOrder<TData, TValue>(
+  columns: ColumnDef<TData, TValue>[]
+): ColumnOrderState {
+  return columns.map(getColumnId);
 }
 
 export function DataTable<TData, TValue>({
@@ -57,35 +85,93 @@ export function DataTable<TData, TValue>({
   onRowClick,
   groupByKey,
   groupByLabel = "Service",
+  storageKey = "logs-table",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "timestamp", desc: true },
   ]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    () =>
-      Object.fromEntries(
-        columns
-          .filter((col) => col.enableHiding !== false)
-          .map((col) => {
-            const id =
-              (col as { id?: string }).id ??
-              (col as { accessorKey?: string }).accessorKey ??
-              "";
-            return [id, false];
-          })
-      )
+  const [columnVisibility, setColumnVisibility] =
+    useLocalStorageState<VisibilityState>(
+      `${storageKey}.columnVisibility`,
+      () => computeDefaultVisibility(columns)
+    );
+  const [columnOrder, setColumnOrder] = useLocalStorageState<ColumnOrderState>(
+    `${storageKey}.columnOrder`,
+    () => computeDefaultOrder(columns)
   );
-  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(() =>
-    columns.map(
-      (col) =>
-        (col as { id?: string }).id ??
-        String((col as { accessorKey?: unknown }).accessorKey ?? "")
-    )
+  const [isGrouped, setIsGrouped] = useLocalStorageState<boolean>(
+    `${storageKey}.isGrouped`,
+    false
   );
-  const [isGrouped, setIsGrouped] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-    new Set()
+  const [collapsedGroupIds, setCollapsedGroupIds] = useLocalStorageState<
+    string[]
+  >(`${storageKey}.collapsedGroups`, []);
+  const collapsedGroups = useMemo(
+    () => new Set(collapsedGroupIds),
+    [collapsedGroupIds]
   );
+  const [hiddenServices, setHiddenServices] = useLocalStorageState<string[]>(
+    `${storageKey}.hiddenServices`,
+    []
+  );
+  const hiddenServiceSet = useMemo(
+    () => new Set(hiddenServices),
+    [hiddenServices]
+  );
+  const hydrated = useHydrated();
+
+  // All distinct values for `groupByKey` seen in the (unfiltered) data,
+  // used to populate the service filter dropdown.
+  const availableServices = useMemo(() => {
+    if (!groupByKey) return [];
+    const set = new Set<string>();
+    data.forEach((row) => {
+      set.add(
+        String((row as Record<string, unknown>)[groupByKey] || "(no service)")
+      );
+    });
+    return Array.from(set).sort();
+  }, [data, groupByKey]);
+
+  // Rows whose service has been unchecked in the filter dropdown are
+  // excluded before the table (and grouping) ever sees them.
+  const filteredData = useMemo(() => {
+    if (!groupByKey || hiddenServiceSet.size === 0) return data;
+    return data.filter((row) => {
+      const value = String(
+        (row as Record<string, unknown>)[groupByKey] || "(no service)"
+      );
+      return !hiddenServiceSet.has(value);
+    });
+  }, [data, groupByKey, hiddenServiceSet]);
+
+  function toggleServiceFilter(service: string, visible: boolean) {
+    setHiddenServices((prev) =>
+      visible ? prev.filter((s) => s !== service) : [...prev, service]
+    );
+  }
+
+  // Reconcile persisted settings with the current column set: keep stored
+  // choices for columns that still exist, default any newly-seen columns
+  // (e.g. attribute columns discovered from freshly-loaded data), and drop
+  // settings for columns that no longer exist.
+  useEffect(() => {
+    setColumnVisibility((prev) => {
+      const defaults = computeDefaultVisibility(columns);
+      const next = { ...defaults, ...prev };
+      Object.keys(next).forEach((id) => {
+        if (!(id in defaults)) delete next[id];
+      });
+      return next;
+    });
+    setColumnOrder((prev) => {
+      const ids = columns.map(getColumnId);
+      const kept = prev.filter((id) => ids.includes(id));
+      const missing = ids.filter((id) => !kept.includes(id));
+      return [...kept, ...missing];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns]);
 
   // Drag-to-reorder state
   const dragColId = useRef<string | null>(null);
@@ -121,7 +207,7 @@ export function DataTable<TData, TValue>({
   }
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -150,18 +236,31 @@ export function DataTable<TData, TValue>({
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(row);
     });
-    return Array.from(map.entries());
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [isGrouped, groupByKey, table]);
 
   function toggleGroup(name: string) {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
+    setCollapsedGroupIds((prev) =>
+      prev.includes(name) ? prev.filter((id) => id !== name) : [...prev, name]
+    );
   }
 
   const visibleColCount = table.getVisibleLeafColumns().length;
+
+  // Persisted settings (column visibility/order, group mode) are only known
+  // for certain once hydrated — render a placeholder instead of briefly
+  // flashing the un-personalized defaults.
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="h-7 w-40 animate-pulse rounded bg-muted" />
+          <div className="h-7 w-24 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="flex-1 animate-pulse rounded-md border border-border bg-muted/30" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
