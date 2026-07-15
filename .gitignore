@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated proto types (regenerate with: npm run generate:types)
+/src/lib/generated

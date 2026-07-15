@@ -1,0 +1,15 @@
+version: v2
+plugins:
+  - local: ./node_modules/.bin/protoc-gen-ts_proto
+    out: src/lib/generated
+    opt:
+      # fixed64/int64 fields → string (correct for OTLP/JSON wire format)
+      - forceLong=string
+      # Plain interfaces only — no encode/decode/JSON runtime methods needed
+      - outputEncodeMethods=false
+      - outputJsonMethods=false
+      - outputClientImpl=false
+      - outputServices=false
+      - oneof=unions
+      - esModuleInterop=true
+      - exportCommonSymbols=false
