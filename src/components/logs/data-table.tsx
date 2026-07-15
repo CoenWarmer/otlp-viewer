@@ -2,6 +2,7 @@
 
 import {
   ColumnDef,
+  ColumnOrderState,
   Row,
   SortingState,
   VisibilityState,
@@ -11,7 +12,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Table,
   TableBody,
@@ -74,10 +75,50 @@ export function DataTable<TData, TValue>({
           })
       )
   );
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(() =>
+    columns.map(
+      (col) =>
+        (col as { id?: string }).id ??
+        String((col as { accessorKey?: unknown }).accessorKey ?? "")
+    )
+  );
   const [isGrouped, setIsGrouped] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set()
   );
+
+  // Drag-to-reorder state
+  const dragColId = useRef<string | null>(null);
+  const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+
+  function handleDragStart(colId: string) {
+    dragColId.current = colId;
+  }
+  function handleDragOver(e: React.DragEvent, colId: string) {
+    e.preventDefault();
+    if (dragColId.current && dragColId.current !== colId) {
+      setDragOverColId(colId);
+    }
+  }
+  function handleDrop(targetColId: string) {
+    const from = dragColId.current;
+    if (!from || from === targetColId) return;
+    setColumnOrder((prev) => {
+      const order = [...prev];
+      const fromIdx = order.indexOf(from);
+      const toIdx = order.indexOf(targetColId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      order.splice(fromIdx, 1);
+      order.splice(toIdx, 0, from);
+      return order;
+    });
+    dragColId.current = null;
+    setDragOverColId(null);
+  }
+  function handleDragEnd() {
+    dragColId.current = null;
+    setDragOverColId(null);
+  }
 
   const table = useReactTable({
     data,
@@ -87,7 +128,8 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    state: { sorting, columnVisibility },
+    onColumnOrderChange: setColumnOrder,
+    state: { sorting, columnVisibility, columnOrder },
     initialState: { pagination: { pageSize: defaultPageSize } },
   });
 
@@ -188,7 +230,19 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="bg-muted/30">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    draggable={!header.isPlaceholder}
+                    onDragStart={() => handleDragStart(header.column.id)}
+                    onDragOver={(e) => handleDragOver(e, header.column.id)}
+                    onDrop={() => handleDrop(header.column.id)}
+                    onDragEnd={handleDragEnd}
+                    className={`cursor-grab select-none active:cursor-grabbing ${
+                      dragOverColId === header.column.id
+                        ? "border-l-2 border-l-primary"
+                        : ""
+                    }`}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
