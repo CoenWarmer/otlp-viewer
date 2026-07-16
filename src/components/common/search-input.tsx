@@ -4,7 +4,7 @@ export function SearchInput({
   value,
   onChange,
   onEnter,
-  placeholder = "Search…",
+  placeholder = "Search...",
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -12,6 +12,7 @@ export function SearchInput({
   placeholder?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     ref.current?.focus();
   }, []);

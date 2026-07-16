@@ -1,40 +1,11 @@
 "use client";
 
-import { ColumnDef, ColumnOrderState, SortingFn, VisibilityState } from "@tanstack/react-table";
+import { ColumnDef, ColumnOrderState, Row, VisibilityState } from "@tanstack/react-table";
 import { RiArrowDownLine, RiArrowUpDownLine, RiArrowUpLine } from "@remixicon/react";
 import { type LogRow, severityColorClass } from "@/lib/utils/otlp";
 import { SeverityNumber } from "@/lib/types/otlp";
 
-const sortByDate: SortingFn<LogRow> = (rowA, rowB, columnId) =>
-  (rowA.getValue<Date>(columnId)?.getTime() ?? 0) - (rowB.getValue<Date>(columnId)?.getTime() ?? 0);
-
-function SortableHeader({
-  label,
-  isSorted,
-  onClick,
-}: {
-  label: string;
-  isSorted: false | "asc" | "desc";
-  onClick: () => void;
-}) {
-  // Neutral up/down icon (dimmed) when this isn't the active sort column;
-  // an actual up/down arrow (full opacity) showing the direction when it is.
-  const Icon =
-    isSorted === "asc" ? RiArrowUpLine : isSorted === "desc" ? RiArrowDownLine : RiArrowUpDownLine;
-  return (
-    <button
-      className="flex cursor-pointer items-center gap-1 transition-colors hover:text-foreground"
-      onClick={onClick}
-    >
-      {label}
-      <Icon
-        className={`size-3 cursor-pointer text-muted-foreground ${isSorted ? "opacity-100" : "opacity-50"}`}
-      />
-    </button>
-  );
-}
-
-/** Fixed columns — always visible, cannot be hidden. */
+/** Default columns */
 export const columns: ColumnDef<LogRow>[] = [
   {
     accessorKey: "timestamp",
@@ -65,9 +36,9 @@ export const columns: ColumnDef<LogRow>[] = [
       />
     ),
     cell: ({ row }) => {
-      const n: SeverityNumber = row.getValue("severityNumber");
+      const severityNumber: SeverityNumber = row.getValue("severityNumber");
       return (
-        <span className={`font-mono font-medium ${severityColorClass(n)}`}>
+        <span className={`font-mono font-medium ${severityColorClass(severityNumber)}`}>
           {row.original.severityText}
         </span>
       );
@@ -79,6 +50,33 @@ export const columns: ColumnDef<LogRow>[] = [
     cell: ({ row }) => <span className="block max-w-[600px] truncate">{row.getValue("body")}</span>,
   },
 ];
+
+function SortableHeader({
+  label,
+  isSorted,
+  onClick,
+}: {
+  label: string;
+  isSorted: false | "asc" | "desc";
+  onClick: () => void;
+}) {
+  // Neutral up/down icon (dimmed) when this isn't the active sort column;
+  // an actual up/down arrow (full opacity) showing the direction when it is.
+  const Icon =
+    isSorted === "asc" ? RiArrowUpLine : isSorted === "desc" ? RiArrowDownLine : RiArrowUpDownLine;
+
+  return (
+    <button
+      className="flex cursor-pointer items-center gap-1 transition-colors hover:text-foreground"
+      onClick={onClick}
+    >
+      {label}
+      <Icon
+        className={`size-3 cursor-pointer text-muted-foreground ${isSorted ? "opacity-100" : "opacity-50"}`}
+      />
+    </button>
+  );
+}
 
 /** Creates a toggleable column for an attribute key (checks log attributes then resource attributes). */
 export function createAttributeColumn(
@@ -110,12 +108,6 @@ export function createAttributeColumn(
   };
 }
 
-export function getColumnId<TData, TValue>(col: ColumnDef<TData, TValue>): string {
-  return (
-    (col as { id?: string }).id ?? String((col as { accessorKey?: unknown }).accessorKey ?? "")
-  );
-}
-
 export function computeDefaultVisibility<TData, TValue>(
   columns: ColumnDef<TData, TValue>[]
 ): VisibilityState {
@@ -134,4 +126,17 @@ export function computeDefaultOrder<TData, TValue>(
   columns: ColumnDef<TData, TValue>[]
 ): ColumnOrderState {
   return columns.map(getColumnId);
+}
+
+export function getColumnId<TData, TValue>(col: ColumnDef<TData, TValue>): string {
+  return (
+    (col as { id?: string }).id ?? String((col as { accessorKey?: unknown }).accessorKey ?? "")
+  );
+}
+
+function sortByDate(rowA: Row<LogRow>, rowB: Row<LogRow>, columnId: string): number {
+  return (
+    (rowA.getValue<Date>(columnId)?.getTime() ?? 0) -
+    (rowB.getValue<Date>(columnId)?.getTime() ?? 0)
+  );
 }

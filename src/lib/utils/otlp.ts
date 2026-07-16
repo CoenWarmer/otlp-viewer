@@ -117,15 +117,9 @@ export function anyValueToString(anyValue: OtlpJsonAnyValue | undefined): string
   return JSON.stringify(decoded);
 }
 
-function severityLabel(n: SeverityNumber | undefined): string {
-  if (!n) return "UNSPECIFIED";
-  if (n >= SeverityNumber.SEVERITY_NUMBER_FATAL) return "FATAL";
-  if (n >= SeverityNumber.SEVERITY_NUMBER_ERROR) return "ERROR";
-  if (n >= SeverityNumber.SEVERITY_NUMBER_WARN) return "WARN";
-  if (n >= SeverityNumber.SEVERITY_NUMBER_INFO) return "INFO";
-  if (n >= SeverityNumber.SEVERITY_NUMBER_DEBUG) return "DEBUG";
-  if (n >= SeverityNumber.SEVERITY_NUMBER_TRACE) return "TRACE";
-  return "UNSPECIFIED";
+function severityLabel(severityNumber: SeverityNumber | undefined): string {
+  if (!severityNumber) return "UNSPECIFIED";
+  return severityGroup(severityNumber).toUpperCase();
 }
 
 /**
@@ -134,10 +128,12 @@ function severityLabel(n: SeverityNumber | undefined): string {
  */
 export function collectAttributeKeys(rows: LogRow[]): string[] {
   const keys = new Set<string>();
+
   rows.forEach((row) => {
     Object.keys(row.attributes).forEach((k) => keys.add(k));
     Object.keys(row.resourceAttributes).forEach((k) => keys.add(k));
   });
+
   return Array.from(keys).sort();
 }
 

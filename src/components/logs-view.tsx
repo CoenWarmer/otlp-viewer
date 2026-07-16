@@ -20,6 +20,7 @@ import { RiCloseLine, RiRefreshLine } from "@remixicon/react";
 import { LogDrawer } from "./logs/log-drawer";
 import { LogVolumeChart } from "./logs/log-volume-chart";
 import type { TimeRange } from "@/lib/types/common";
+import { SelectedServicesBadges } from "./logs/selected-services-badges";
 
 const SERVICE_KEY = "serviceName";
 
@@ -210,22 +211,12 @@ export default function LogsView() {
       <div className="shrink-0" style={{ minHeight: 64 }}>
         {header}
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {isServiceFiltered ? (
-            visibleServices.map((service) => (
-              <Badge key={service} variant="secondary" className="gap-1 pr-1">
-                {service}
-                <button
-                  aria-label={`Remove ${service} filter`}
-                  className="rounded hover:text-foreground"
-                  onClick={() => setHiddenServices((prev) => [...prev, service])}
-                >
-                  <RiCloseLine className="size-3" />
-                </button>
-              </Badge>
-            ))
-          ) : (
-            <Badge variant="outline">All services ({availableServices.length})</Badge>
-          )}
+          <SelectedServicesBadges
+            availableServices={availableServices}
+            isServiceFiltered={isServiceFiltered}
+            visibleServices={visibleServices}
+            onRemoveBadge={(service) => setHiddenServices((prev) => [...prev, service])}
+          />
         </div>
       </div>
       <LogVolumeChart rows={visibleRows} selectedRange={timeRange} onRangeSelect={setTimeRange} />

@@ -31,13 +31,7 @@ export function FilterDropdownContent({ filter }: { filter: TableFilter }) {
               onClick={() => filter.onSetAll(hiddenSet.size > 0)}
             >
               <Checkbox
-                checked={
-                  hiddenSet.size === 0
-                    ? true
-                    : hiddenSet.size === filter.options.length
-                      ? false
-                      : false
-                }
+                checked={hiddenSet.size === 0 ? true : false}
                 className="pointer-events-none"
               />
               <span>All</span>
