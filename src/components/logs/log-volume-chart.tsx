@@ -117,7 +117,13 @@ export function LogVolumeChart({ rows, selectedRange, onRangeSelect }: LogVolume
             )}
 
             {keys.map((key) => (
-              <Bar key={key} dataKey={key} stackId={segmentBy} fill={`var(--color-${key})`} />
+              <Bar
+                key={key}
+                dataKey={key}
+                stackId={segmentBy}
+                fill={`var(--color-${key})`}
+                isAnimationActive={false}
+              />
             ))}
 
             {refLeft != null && refRight != null && refLeft !== refRight && (
