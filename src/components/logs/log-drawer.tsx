@@ -14,9 +14,19 @@ interface LogDrawerProps {
   row: LogRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  serviceColorMap?: Map<string, string>;
+  onServiceClick?: (service: string) => void;
 }
 
-export function LogDrawer({ row, open, onOpenChange }: LogDrawerProps) {
+export function LogDrawer({
+  row,
+  open,
+  onOpenChange,
+  serviceColorMap,
+  onServiceClick,
+}: LogDrawerProps) {
+  const serviceColor = row ? serviceColorMap?.get(row.serviceName || "(no service)") : undefined;
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="right">
       <DrawerContent className="w-full overflow-y-auto sm:max-w-xl">
@@ -44,7 +54,20 @@ export function LogDrawer({ row, open, onOpenChange }: LogDrawerProps) {
                 </span>
               </Field>
               <Field label="Service">
-                <Mono>{row.serviceName || "—"}</Mono>
+                {onServiceClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onServiceClick(row.serviceName || "(no service)")}
+                    className="font-mono hover:underline"
+                    style={serviceColor ? { color: serviceColor } : undefined}
+                  >
+                    {row.serviceName || "—"}
+                  </button>
+                ) : (
+                  <Mono style={serviceColor ? { color: serviceColor } : undefined}>
+                    {row.serviceName || "—"}
+                  </Mono>
+                )}
               </Field>
               <Field label="Scope">
                 <Mono>{row.scopeName || "—"}</Mono>
@@ -53,7 +76,7 @@ export function LogDrawer({ row, open, onOpenChange }: LogDrawerProps) {
 
             {/* Body */}
             <Section title="Message">
-              <pre className="whitespace-pre-wrap break-all rounded bg-muted/50 p-3 font-mono text-xs text-foreground">
+              <pre className="rounded bg-muted/50 p-3 font-mono text-xs break-all whitespace-pre-wrap text-foreground">
                 {formatBody(row.body)}
               </pre>
             </Section>
@@ -97,9 +120,7 @@ export function LogDrawer({ row, open, onOpenChange }: LogDrawerProps) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h3>
+      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h3>
       <div className="flex flex-col gap-1.5">{children}</div>
     </div>
   );
@@ -114,8 +135,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Mono({ children }: { children: React.ReactNode }) {
-  return <span className="font-mono">{children}</span>;
+function Mono({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <span className="font-mono" style={style}>
+      {children}
+    </span>
+  );
 }
 
 function formatBody(body: string): string {
@@ -136,7 +161,7 @@ function AttributeTable({ attrs }: { attrs: Record<string, unknown> }) {
           className={`flex gap-2 px-3 py-1.5 ${i < arr.length - 1 ? "border-b border-border" : ""}`}
         >
           <span className="w-48 shrink-0 font-mono text-muted-foreground">{key}</span>
-          <span className="min-w-0 break-all font-mono text-foreground">
+          <span className="min-w-0 font-mono break-all text-foreground">
             {typeof value === "object" ? JSON.stringify(value) : String(value ?? "")}
           </span>
         </div>
