@@ -1,4 +1,4 @@
-import { ChartConfig } from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
 import { SeverityNumber } from "@/lib/types/otlp";
 
 export const SEVERITY_GROUPS = ["trace", "debug", "info", "warn", "error", "fatal"] as const;

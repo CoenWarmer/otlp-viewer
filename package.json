@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate:types": "buf generate buf.build/opentelemetry/opentelemetry --path opentelemetry/proto/logs --path opentelemetry/proto/common --path opentelemetry/proto/resource"
@@ -44,7 +46,8 @@
     "prettier": "^3.9.5",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "ts-proto": "^2.12.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   },
   "allowScripts": {
     "@bufbuild/buf@1.71.0": true
