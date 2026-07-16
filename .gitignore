@@ -16,6 +16,10 @@
 # next.js
 /.next/
 /out/
+# Auto-generated route/type validators (Next.js regenerates these on every
+# build inside .next/ — a stale copy was previously committed at this root
+# path by accident, breaking `next build`'s type-check step).
+/types/
 
 # production
 /build
