@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 // localStorage's native "storage" event only fires in *other* tabs/windows,
 // so writes dispatch this custom event to notify subscribers in the same tab.
@@ -49,15 +49,20 @@ export function useLocalStorageState<T>(
     () => null
   );
 
+  // Held in a ref (rather than a `useCallback` dependency) so `setState`
+  // stays referentially stable even when callers pass a fresh literal or
+  // closure as `defaultValue` on every render (e.g. `[]` or `() => ...`) —
+  // matching the stability callers expect from a normal `useState` setter.
+  const defaultValueRef = useRef(defaultValue);
+  defaultValueRef.current = defaultValue;
+
   const state = useMemo<T>(() => {
-    if (raw === null) return getFallback(defaultValue);
+    if (raw === null) return getFallback(defaultValueRef.current);
     try {
       return JSON.parse(raw) as T;
     } catch {
-      return getFallback(defaultValue);
+      return getFallback(defaultValueRef.current);
     }
-    // `defaultValue` is only read as a fallback when `raw` is absent/invalid.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raw]);
 
   const setState = useCallback(
@@ -66,7 +71,7 @@ export function useLocalStorageState<T>(
       const prev =
         prevRaw !== null
           ? (JSON.parse(prevRaw) as T)
-          : getFallback(defaultValue);
+          : getFallback(defaultValueRef.current);
       const next = typeof value === "function" ? (value as (prev: T) => T)(prev) : value;
       try {
         window.localStorage.setItem(key, JSON.stringify(next));
@@ -75,7 +80,7 @@ export function useLocalStorageState<T>(
       }
       window.dispatchEvent(new Event(LOCAL_EVENT));
     },
-    [key, defaultValue]
+    [key]
   );
 
   return [state, setState] as const;
